@@ -1,0 +1,1840 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N-Back 认知负荷在线实验平台</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts: Inter & Noto Sans SC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: #0b1120;
+      color: #f1f5f9;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .stimulus-char {
+      font-family: 'Inter', sans-serif;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    /* 柔和实验室滚动条 */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between antialiased">
+
+  <!-- 顶部实验室导航栏 -->
+  <header id="app-header" class="w-full border-b border-slate-800/90 bg-slate-900/90 backdrop-blur px-4 py-3 sm:px-8 flex flex-wrap items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-teal-500 flex items-center justify-center font-bold text-white shadow-lg shadow-indigo-500/20">
+        NB
+      </div>
+      <div>
+        <h1 class="text-base sm:text-lg font-bold text-slate-100 leading-tight">N-Back 认知负荷实验平台</h1>
+        <p class="text-xs text-slate-400 hidden sm:block">Working Memory &amp; Cognitive Load Lab • 自动存盘与多维分析版</p>
+      </div>
+    </div>
+
+    <div class="flex items-center gap-3">
+      <!-- 实时自动保存状态指示器 -->
+      <div id="live-save-badge" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-300 border border-teal-500/25 transition-all">
+        <span id="live-save-dot" class="w-2 h-2 rounded-full bg-teal-400"></span>
+        <span id="live-save-text">已自动保存至浏览器本地 · 实时同步</span>
+      </div>
+
+      <!-- 历史自动保存记录入口按钮 -->
+      <button id="btn-open-history" type="button" class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition cursor-pointer">
+        <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+        </svg>
+        <span>历史自动保存记录</span>
+        <span id="history-count-pill" class="ml-0.5 px-1.5 py-0.2 rounded-full text-[11px] font-semibold bg-indigo-500/20 text-indigo-300">0</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- 主视图区域 -->
+  <main class="flex-grow flex items-center justify-center p-4 sm:p-6">
+
+    <!-- ==================== 1. 实验配置面板 ==================== -->
+    <section id="view-setup" class="w-full max-w-4xl bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 space-y-6">
+      <div class="border-b border-slate-800 pb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div>
+          <h2 class="text-xl font-bold text-white">实验参数与自动保存配置</h2>
+          <p class="text-sm text-slate-400 mt-1">支持 1/2/3-Back 分层或单难度测试，每一步均自动同步至本地存储并支持自动下载 CSV 与 Webhook 上报。</p>
+        </div>
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-500/10 text-indigo-300 border border-indigo-500/25 self-start">
+          键盘 (F / J) &amp; 触屏双模响应
+        </span>
+      </div>
+
+      <!-- 被试编号与组别 -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="input-participant-id" class="block text-sm font-medium text-slate-300 mb-1.5">被试编号 (Participant ID) <span class="text-rose-400">*</span></label>
+          <input type="text" id="input-participant-id" value="SUB_001" placeholder="例如: P01 或 20261120_01"
+            class="w-full rounded-xl bg-slate-800/90 border border-slate-700 px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+        </div>
+        <div>
+          <label for="input-group-note" class="block text-sm font-medium text-slate-300 mb-1.5">实验组别 / 备注 (Condition / Note)</label>
+          <input type="text" id="input-group-note" value="Baseline" placeholder="例如: 实验组 / 前测 / 高负荷条件"
+            class="w-full rounded-xl bg-slate-800/90 border border-slate-700 px-4 py-2.5 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition">
+        </div>
+      </div>
+
+      <!-- 难度模式选择 -->
+      <div class="space-y-2">
+        <label class="block text-sm font-medium text-slate-300">任务难度模式 (Task Mode)</label>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label id="mode-card-sequential" class="relative flex items-start p-4 rounded-xl border border-indigo-500 bg-indigo-950/30 cursor-pointer transition">
+            <input type="radio" name="task-mode" value="sequential" checked class="mt-1 text-indigo-600 focus:ring-indigo-500">
+            <div class="ml-3">
+              <span class="block text-sm font-semibold text-white">分层递增模式 (1-Back → 2-Back → 3-Back)</span>
+              <span class="block text-xs text-slate-400 mt-1">按顺序自动推进三个难度等级，适合阶梯认知负荷诱发与对比。</span>
+            </div>
+          </label>
+          <label id="mode-card-single" class="relative flex items-start p-4 rounded-xl border border-slate-700 bg-slate-800/50 cursor-pointer transition">
+            <input type="radio" name="task-mode" value="single" class="mt-1 text-indigo-600 focus:ring-indigo-500">
+            <div class="ml-3 w-full">
+              <span class="block text-sm font-semibold text-white">单难度独立模式 (Single N-Back)</span>
+              <span class="block text-xs text-slate-400 mt-1">仅执行选定的单一 N-Back 等级。</span>
+              <select id="select-single-level" disabled class="mt-2 w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-40">
+                <option value="1">1-Back (低负荷)</option>
+                <option value="2" selected>2-Back (中负荷)</option>
+                <option value="3">3-Back (高负荷)</option>
+              </select>
+            </div>
+          </label>
+        </div>
+      </div>
+
+      <!-- 试次与刺激参数 -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-4">
+          <label for="input-judged-trials" class="block text-sm font-medium text-slate-200 mb-1">每难度有效判断试次数</label>
+          <input type="number" id="input-judged-trials" value="20" min="5" max="200"
+            class="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <p class="text-xs text-slate-400 mt-1.5">总呈现试次 = N + 有效试次（前 N 个为记忆基准）。</p>
+        </div>
+
+        <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-4">
+          <label for="input-target-prob" class="block text-sm font-medium text-slate-200 mb-1">目标匹配比例 (%)</label>
+          <input type="number" id="input-target-prob" value="30" min="10" max="80"
+            class="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <p class="text-xs text-slate-400 mt-1.5">有效判断试次中目标匹配的占比（默认 30%）。</p>
+        </div>
+
+        <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-4">
+          <label for="select-stimulus-type" class="block text-sm font-medium text-slate-200 mb-1">刺激材料类型</label>
+          <select id="select-stimulus-type" class="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+            <option value="letters" selected>英文字母 (A - H)</option>
+            <option value="digits">阿拉伯数字 (1 - 9)</option>
+          </select>
+          <p class="text-xs text-slate-400 mt-1.5">支持字母 A-H 或数字 1-9 随机序列生成。</p>
+        </div>
+      </div>
+
+      <!-- 时间与热身练习参数 -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-4">
+          <label for="input-stim-duration" class="block text-sm font-medium text-slate-200 mb-1">刺激呈现时长 (ms)</label>
+          <input type="number" id="input-stim-duration" value="500" min="150" max="3000" step="50"
+            class="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <p class="text-xs text-slate-400 mt-1.5">默认 500 ms。</p>
+        </div>
+
+        <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-4">
+          <label for="input-isi-duration" class="block text-sm font-medium text-slate-200 mb-1">刺激间隔注视时长 (ms)</label>
+          <input type="number" id="input-isi-duration" value="2000" min="500" max="5000" step="100"
+            class="w-full rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-slate-100 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+          <p class="text-xs text-slate-400 mt-1.5">默认 2000 ms（反应窗口 = 呈现 + 间隔）。</p>
+        </div>
+
+        <div class="bg-slate-800/60 border border-slate-700/70 rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <span class="block text-sm font-medium text-slate-200 mb-1">每难度热身练习</span>
+            <label class="inline-flex items-center cursor-pointer mt-1">
+              <input type="checkbox" id="check-practice" checked class="sr-only peer">
+              <div class="relative w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-teal-600"></div>
+              <span class="ms-3 text-sm font-medium text-slate-300">包含 5 次有效练习</span>
+            </label>
+          </div>
+          <p class="text-xs text-slate-400 mt-2">练习含即时正误提示，不计入正式统计指标。</p>
+        </div>
+      </div>
+
+      <!-- 自动保存与上报配置区块 -->
+      <div class="bg-slate-800/45 border border-teal-500/25 rounded-2xl p-4 sm:p-5 space-y-4">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-teal-400"></span>
+            <h3 class="text-sm font-bold text-teal-200">自动保存与数据归档设置</h3>
+          </div>
+          <span class="text-xs text-slate-400">试次与阶段状态始终实时写入 localStorage</span>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+          <!-- 自动下载 CSV 开关及模式 -->
+          <div class="bg-slate-900/70 border border-slate-700/70 rounded-xl p-3.5 space-y-2.5">
+            <label class="flex items-center justify-between cursor-pointer">
+              <span class="text-sm font-medium text-slate-200">实验结束自动下载 CSV 文件</span>
+              <input type="checkbox" id="check-auto-download-csv" checked class="sr-only peer">
+              <span class="relative w-11 h-6 bg-slate-700 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></span>
+            </label>
+            <div class="flex items-center justify-between gap-2 pt-1">
+              <label for="select-auto-csv-scope" class="text-xs text-slate-400">自动下载内容：</label>
+              <select id="select-auto-csv-scope" class="rounded-lg bg-slate-800 border border-slate-700 px-2.5 py-1 text-xs text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                <option value="both" selected>逐试次明细 + 汇总统计 (两个 CSV)</option>
+                <option value="trials">仅逐试次明细 CSV</option>
+                <option value="summary">仅汇总统计 CSV</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 可选 Webhook 自动上报 -->
+          <div class="bg-slate-900/70 border border-slate-700/70 rounded-xl p-3.5 space-y-2">
+            <div class="flex items-center justify-between">
+              <label for="input-webhook-url" class="text-sm font-medium text-slate-200">自动上报 Webhook URL（可选）</label>
+              <span class="text-[11px] text-slate-400">POST JSON</span>
+            </div>
+            <input type="url" id="input-webhook-url" placeholder="https://script.google.com/macros/s/... 或自定义接口"
+              class="w-full rounded-lg bg-slate-800 border border-slate-700 px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:ring-2 focus:ring-teal-500">
+            <p class="text-[11px] text-slate-400">留空则为“未配置”；实验结束自动 POST 结果，若网络失败则保留本地记录并提示。</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- 错误提示框 -->
+      <div id="setup-error-box" class="hidden rounded-xl bg-rose-500/10 border border-rose-500/30 p-3 text-sm text-rose-300"></div>
+
+      <!-- 底部预估与启动按钮 -->
+      <div class="pt-2 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-slate-800">
+        <div class="text-xs text-slate-400">
+          预估总耗时：<span id="estimated-time-text" class="text-slate-200 font-semibold">计算中...</span>
+        </div>
+        <button id="btn-start-experiment" type="button" class="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold shadow-lg shadow-indigo-600/25 transition flex items-center justify-center gap-2 cursor-pointer">
+          <span>开始实验</span>
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+          </svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== 2. 阶段指导语屏 ==================== -->
+    <section id="view-instruction" class="hidden w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-10 text-center space-y-6">
+      <div id="instr-badge" class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold tracking-wide">
+        阶段提示
+      </div>
+
+      <h2 id="instr-title" class="text-2xl sm:text-3xl font-bold text-white">N-Back 测试</h2>
+
+      <div id="instr-body" class="text-slate-300 text-sm sm:text-base leading-relaxed bg-slate-800/60 border border-slate-700/70 rounded-xl p-5 text-left space-y-3"></div>
+
+      <div class="grid grid-cols-2 gap-4 pt-1">
+        <div class="bg-slate-800/90 border border-emerald-500/30 rounded-xl p-4 flex flex-col items-center">
+          <kbd class="px-4 py-2 text-lg font-bold bg-slate-900 text-emerald-400 border border-emerald-500/50 rounded-lg shadow">F 键</kbd>
+          <span class="mt-2 text-sm font-semibold text-emerald-300">匹配 (Match)</span>
+          <span class="text-xs text-slate-400 mt-0.5">当前刺激与前第 N 个相同</span>
+        </div>
+        <div class="bg-slate-800/90 border border-amber-500/30 rounded-xl p-4 flex flex-col items-center">
+          <kbd class="px-4 py-2 text-lg font-bold bg-slate-900 text-amber-400 border border-amber-500/50 rounded-lg shadow">J 键</kbd>
+          <span class="mt-2 text-sm font-semibold text-amber-300">不匹配 (Non-Match)</span>
+          <span class="text-xs text-slate-400 mt-0.5">当前刺激与前第 N 个不同</span>
+        </div>
+      </div>
+
+      <p class="text-xs text-slate-400">
+        每个阶段最开始的 <strong id="instr-n-count" class="text-slate-200">N</strong> 个刺激仅用于记忆基准，无需按键。所有试次均实时自动保存至本地。
+      </p>
+
+      <div class="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <button id="btn-begin-block" type="button" class="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold shadow-lg shadow-indigo-600/25 transition cursor-pointer">
+          我已准备好，开始本阶段 (按空格键)
+        </button>
+        <button id="btn-abort-from-instr" type="button" class="w-full sm:w-auto px-5 py-3.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition cursor-pointer">
+          返回配置
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== 3. 实验刺激呈现屏 ==================== -->
+    <section id="view-trial" class="hidden w-full max-w-3xl flex flex-col items-center justify-between min-h-[76vh] py-3">
+      <!-- 顶部阶段进度与自动存盘提示 -->
+      <div class="w-full space-y-2">
+        <div class="flex flex-wrap items-center justify-between gap-2 text-xs sm:text-sm text-slate-400">
+          <div class="flex items-center gap-2">
+            <span id="trial-block-label" class="font-bold text-indigo-400">1-Back 正式实验</span>
+            <span class="text-slate-600">|</span>
+            <span id="trial-counter-text">试次 1 / 21</span>
+          </div>
+          <div class="flex items-center gap-2.5">
+            <span class="hidden sm:inline-flex items-center gap-1.5 text-xs text-teal-400/90">
+              <span class="w-1.5 h-1.5 rounded-full bg-teal-400"></span>
+              已自动保存至浏览器本地 · 实时同步
+            </span>
+            <button id="btn-abort-trial" type="button" class="px-3 py-1 rounded-lg bg-slate-800/80 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs border border-slate-700/60 transition cursor-pointer">
+              终止实验
+            </button>
+          </div>
+        </div>
+        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+          <div id="trial-progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-teal-400 transition-all duration-200" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- 中央刺激框 -->
+      <div class="my-auto flex flex-col items-center justify-center w-full">
+        <div id="stimulus-box" class="w-56 h-56 sm:w-64 sm:h-64 rounded-3xl bg-slate-900 border-2 border-slate-800 shadow-2xl flex flex-col items-center justify-center relative transition-colors duration-100">
+          <span id="baseline-hint" class="hidden absolute top-4 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-slate-800 text-slate-400 border border-slate-700">
+            记忆基准项 (无需判断)
+          </span>
+          <div id="stimulus-display" class="stimulus-char text-7xl sm:text-8xl text-slate-100 select-none">
+            +
+          </div>
+          <div id="feedback-indicator" class="h-6 mt-3 text-xs sm:text-sm font-medium text-transparent transition-colors">
+            等待反应
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部大尺寸触屏/鼠标响应按钮 -->
+      <div class="w-full max-w-lg grid grid-cols-2 gap-4 pt-4">
+        <button id="btn-respond-match" type="button" class="py-4 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.98] border-2 border-slate-700 hover:border-emerald-500/60 flex flex-col items-center justify-center transition cursor-pointer">
+          <span class="text-base sm:text-lg font-bold text-emerald-400">匹配 (Match)</span>
+          <span class="text-xs text-slate-400 mt-1">快捷键 <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-slate-200">F</kbd></span>
+        </button>
+
+        <button id="btn-respond-nonmatch" type="button" class="py-4 px-4 rounded-2xl bg-slate-900 hover:bg-slate-800 active:scale-[0.98] border-2 border-slate-700 hover:border-amber-500/60 flex flex-col items-center justify-center transition cursor-pointer">
+          <span class="text-base sm:text-lg font-bold text-amber-400">不匹配 (Non-Match)</span>
+          <span class="text-xs text-slate-400 mt-1">快捷键 <kbd class="px-1.5 py-0.5 bg-slate-800 rounded border border-slate-600 text-slate-200">J</kbd></span>
+        </button>
+      </div>
+    </section>
+
+    <!-- ==================== 4. 结果与统计分析屏 ==================== -->
+    <section id="view-results" class="hidden w-full max-w-5xl bg-slate-900/95 border border-slate-800 rounded-2xl shadow-2xl p-6 sm:p-8 space-y-7">
+      <!-- 顶部结果信息与导出/管理按钮 -->
+      <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-800 pb-6">
+        <div class="space-y-1.5">
+          <div class="flex flex-wrap items-center gap-2">
+            <span id="res-completion-badge" class="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+              实验已完成
+            </span>
+            <span id="res-auto-save-status" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-500/15 text-teal-300 border border-teal-500/30">
+              已自动保存至浏览器本地 · 实时同步
+            </span>
+            <span id="res-webhook-status" class="px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+              Webhook: 未配置
+            </span>
+          </div>
+          <h2 class="text-2xl font-bold text-white">N-Back 认知负荷绩效分析报告</h2>
+          <p id="res-meta-info" class="text-xs text-slate-400"></p>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button id="btn-export-trials-csv" type="button" class="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-semibold shadow-lg shadow-indigo-600/20 flex items-center gap-2 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            <span>导出逐试次 CSV</span>
+          </button>
+          <button id="btn-export-summary-csv" type="button" class="px-4 py-2.5 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold shadow-lg shadow-teal-600/20 flex items-center gap-2 transition cursor-pointer">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+            </svg>
+            <span>导出汇总 CSV</span>
+          </button>
+          <button id="btn-results-open-history" type="button" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-700 transition cursor-pointer">
+            历史记录
+          </button>
+          <button id="btn-restart-all" type="button" class="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium border border-slate-700 transition cursor-pointer">
+            返回配置
+          </button>
+        </div>
+      </div>
+
+      <!-- 自动下载 / Webhook 反馈条 -->
+      <div id="auto-action-banner" class="hidden rounded-xl bg-indigo-950/40 border border-indigo-500/30 px-4 py-3 text-xs sm:text-sm text-indigo-200"></div>
+
+      <!-- 总体指标卡片 -->
+      <div id="summary-cards-grid" class="grid grid-cols-2 lg:grid-cols-4 gap-4"></div>
+
+      <!-- 可视化对比图表 -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-5">
+          <h3 class="text-sm font-semibold text-slate-200 mb-1">各难度正确率与命中率对比 (%)</h3>
+          <p class="text-xs text-slate-400 mb-4">反映随工作记忆负荷 (N) 升高的准确率变化</p>
+          <div class="w-full h-56 relative">
+            <canvas id="chart-accuracy"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-slate-800/50 border border-slate-700/70 rounded-2xl p-5">
+          <h3 class="text-sm font-semibold text-slate-200 mb-1">各难度正确试次平均反应时 (ms)</h3>
+          <p class="text-xs text-slate-400 mb-4">Mean RT ± SD（仅统计正确作答试次）</p>
+          <div class="w-full h-56 relative">
+            <canvas id="chart-rt"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- 分难度统计明细表 -->
+      <div class="space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-2">
+          <h3 class="text-base font-bold text-white">分难度指标明细表（仅统计正式实验有效判断试次）</h3>
+          <span class="text-xs text-slate-400">* d' 采用标准边缘校正 (0.5 / N) 计算</span>
+        </div>
+        <div class="overflow-x-auto rounded-xl border border-slate-800">
+          <table class="w-full text-left border-collapse text-sm">
+            <thead>
+              <tr class="bg-slate-800/90 text-slate-300 border-b border-slate-700 text-xs uppercase">
+                <th class="py-3.5 px-4 font-semibold">难度阶段</th>
+                <th class="py-3.5 px-4 font-semibold">有效试次</th>
+                <th class="py-3.5 px-4 font-semibold">整体正确率</th>
+                <th class="py-3.5 px-4 font-semibold">命中率</th>
+                <th class="py-3.5 px-4 font-semibold">虚报率</th>
+                <th class="py-3.5 px-4 font-semibold">遗漏率</th>
+                <th class="py-3.5 px-4 font-semibold">平均 RT (SD)</th>
+                <th class="py-3.5 px-4 font-semibold text-teal-300">辨别力 d'</th>
+              </tr>
+            </thead>
+            <tbody id="results-table-body" class="divide-y divide-slate-800 bg-slate-900/60 text-slate-200"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 指标说明脚注 -->
+      <div class="bg-slate-800/40 border border-slate-800 rounded-xl p-4 text-xs text-slate-400 space-y-1">
+        <p><strong class="text-slate-300">统计说明：</strong>整体正确率 = (命中 + 正确拒绝) / 有效判断试次数；遗漏率 (Miss / Omission Rate) 包含超时未按键及目标漏报；信号检测敏感度 <strong>d' = Z(Hit Rate) - Z(False Alarm Rate)</strong>。</p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ==================== 5. 历史自动保存记录管理器抽屉/模态框 ==================== -->
+  <div id="history-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-4xl w-full max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- 头部 -->
+      <div class="px-6 py-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 class="text-lg font-bold text-white">历史自动保存记录 (localStorage)</h3>
+          <p class="text-xs text-slate-400 mt-0.5">每次作答及阶段推进均自动存入浏览器本地；支持重新加载查看报告、单独/合并导出 CSV 或清理记录。</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <button id="btn-export-all-sessions-csv" type="button" class="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition cursor-pointer">
+            合并导出全部记录 CSV
+          </button>
+          <button id="btn-clear-all-sessions" type="button" class="px-3.5 py-2 rounded-xl bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-500/30 text-xs font-semibold transition cursor-pointer">
+            清空全部记录
+          </button>
+          <button id="btn-close-history" type="button" class="p-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 transition cursor-pointer" aria-label="关闭">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 列表主体 -->
+      <div id="history-list-container" class="p-6 overflow-y-auto space-y-3 flex-grow">
+        <!-- 动态渲染会话列表 -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== 6. 通用确认/提示模态框（替代 alert / confirm） ==================== -->
+  <div id="custom-modal" class="hidden fixed inset-0 z-[60] bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <h3 id="modal-title" class="text-lg font-bold text-white">确认操作</h3>
+      <p id="modal-message" class="text-sm text-slate-300 leading-relaxed"></p>
+      <div id="modal-actions" class="flex justify-end gap-3 pt-2">
+        <button id="modal-btn-cancel" type="button" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium transition cursor-pointer">取消</button>
+        <button id="modal-btn-confirm" type="button" class="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-sm font-semibold transition cursor-pointer">确认</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="w-full py-3 px-6 text-center text-xs text-slate-500 border-t border-slate-900">
+    N-Back Cognitive Load Lab • 实时本地自动存盘 + 自动 CSV 导出 + 可选 Webhook 上报
+  </footer>
+
+  <script>
+    /**
+     * ============================================================================
+     * N-Back 认知负荷在线实验平台（含实时自动保存、自动 CSV 导出、Webhook 上报与历史管理）
+     * ============================================================================
+     */
+
+    const STORAGE_KEY_SESSIONS = 'nback_lab_autosaved_sessions_v1';
+    const STORAGE_KEY_PREFS = 'nback_lab_preferences_v1';
+    const PRACTICE_JUDGED_TRIALS = 5;
+
+    // 刺激材料池：英文字母 A-H 与阿拉伯数字 1-9
+    const STIMULUS_POOLS = {
+      letters: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'],
+      digits: ['1', '2', '3', '4', '5', '6', '7', '8', '9']
+    };
+
+    // 全局运行状态
+    const state = {
+      sessionId: null,
+      sessionCreatedAt: null,
+      sessionUpdatedAt: null,
+      isCompleted: false,
+      webhookStatusText: '未配置',
+      config: {
+        participantId: 'SUB_001',
+        groupNote: 'Baseline',
+        mode: 'sequential', // 'sequential' | 'single'
+        singleLevel: 2,
+        judgedTrials: 20,
+        targetProb: 0.30,
+        stimulusType: 'letters',
+        stimDuration: 500,
+        isiDuration: 2000,
+        includePractice: true,
+        autoDownloadCsv: true,
+        autoCsvScope: 'both', // 'both' | 'trials' | 'summary'
+        webhookUrl: ''
+      },
+      blocksQueue: [],
+      currentBlockIndex: -1,
+      currentTrials: [],
+      currentTrialIndex: -1,
+      trialStartTime: 0,
+      hasResponded: false,
+      isWaitingForResponse: false,
+      timers: [],
+      allTrialRecords: [],
+      summaryMetrics: [],
+      pendingModalAction: null
+    };
+
+    const views = {
+      setup: document.getElementById('view-setup'),
+      instruction: document.getElementById('view-instruction'),
+      trial: document.getElementById('view-trial'),
+      results: document.getElementById('view-results')
+    };
+
+    // 视图切换
+    function switchView(viewName) {
+      Object.values(views).forEach(v => v.classList.add('hidden'));
+      views[viewName].classList.remove('hidden');
+      const header = document.getElementById('app-header');
+      header.classList.toggle('hidden', viewName === 'trial');
+    }
+
+    // 通用对话框（替代 alert / confirm）
+    function showDialog({ title, message, confirmText = '确认', cancelText = '取消', singleButton = false, onConfirm = null }) {
+      document.getElementById('modal-title').textContent = title;
+      document.getElementById('modal-message').textContent = message;
+      const cancelBtn = document.getElementById('modal-btn-cancel');
+      const confirmBtn = document.getElementById('modal-btn-confirm');
+
+      cancelBtn.textContent = cancelText;
+      confirmBtn.textContent = confirmText;
+      cancelBtn.classList.toggle('hidden', singleButton);
+      state.pendingModalAction = onConfirm;
+      document.getElementById('custom-modal').classList.remove('hidden');
+    }
+
+    function closeDialog() {
+      document.getElementById('custom-modal').classList.add('hidden');
+      state.pendingModalAction = null;
+    }
+
+    document.getElementById('modal-btn-cancel').addEventListener('click', closeDialog);
+    document.getElementById('modal-btn-confirm').addEventListener('click', () => {
+      const action = state.pendingModalAction;
+      closeDialog();
+      if (typeof action === 'function') action();
+    });
+
+    /**
+     * ============================================================================
+     * 1. localStorage 自动保存与历史会话管理模块
+     * ============================================================================
+     */
+
+    function loadSavedSessions() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_SESSIONS);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (err) {
+        console.error('读取 localStorage 历史记录失败:', err);
+        return [];
+      }
+    }
+
+    function writeSavedSessions(sessions) {
+      try {
+        localStorage.setItem(STORAGE_KEY_SESSIONS, JSON.stringify(sessions));
+        refreshHistoryBadge();
+        return true;
+      } catch (err) {
+        console.error('写入 localStorage 失败:', err);
+        updateLiveSaveIndicator('本地存储空间不足，部分记录未能写入', true);
+        return false;
+      }
+    }
+
+    function refreshHistoryBadge() {
+      const sessions = loadSavedSessions();
+      document.getElementById('history-count-pill').textContent = String(sessions.length);
+    }
+
+    function updateLiveSaveIndicator(customText = null, isWarning = false) {
+      const badge = document.getElementById('live-save-badge');
+      const dot = document.getElementById('live-save-dot');
+      const textEl = document.getElementById('live-save-text');
+
+      textEl.textContent = customText || '已自动保存至浏览器本地 · 实时同步';
+      if (isWarning) {
+        badge.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-amber-500/15 text-amber-300 border border-amber-500/30 transition-all';
+        dot.className = 'w-2 h-2 rounded-full bg-amber-400';
+      } else {
+        badge.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-teal-500/10 text-teal-300 border border-teal-500/25 transition-all';
+        dot.className = 'w-2 h-2 rounded-full bg-teal-400 animate-pulse';
+        setTimeout(() => dot.classList.remove('animate-pulse'), 600);
+      }
+    }
+
+    // 实时同步当前会话到 localStorage
+    function persistCurrentSessionToStorage() {
+      if (!state.sessionId) return;
+
+      const formalRecords = state.allTrialRecords.filter(r => r.Phase === 'Formal');
+      const levelsPresent = [...new Set(formalRecords.map(r => r.Block_Level))];
+      const computedSummary = levelsPresent.map(lvl => {
+        const subset = formalRecords.filter(r => r.Block_Level === lvl);
+        return calculateBlockMetrics(subset, lvl);
+      }).filter(Boolean);
+
+      const overall = calculateBlockMetrics(formalRecords, '总计 (Overall)');
+      state.summaryMetrics = computedSummary;
+      state.sessionUpdatedAt = new Date().toISOString();
+
+      const sessionObj = {
+        sessionId: state.sessionId,
+        createdAt: state.sessionCreatedAt,
+        updatedAt: state.sessionUpdatedAt,
+        isCompleted: state.isCompleted,
+        webhookStatusText: state.webhookStatusText,
+        config: { ...state.config },
+        currentBlockIndex: state.currentBlockIndex,
+        totalBlocks: state.blocksQueue.length,
+        trials: state.allTrialRecords,
+        summaryMetrics: computedSummary,
+        overallMetrics: overall
+      };
+
+      const sessions = loadSavedSessions();
+      const existingIdx = sessions.findIndex(s => s.sessionId === state.sessionId);
+      if (existingIdx >= 0) {
+        sessions[existingIdx] = sessionObj;
+      } else {
+        sessions.unshift(sessionObj);
+      }
+
+      if (writeSavedSessions(sessions)) {
+        updateLiveSaveIndicator('已自动保存至浏览器本地 · 实时同步', false);
+        const resSaveEl = document.getElementById('res-auto-save-status');
+        if (resSaveEl) {
+          resSaveEl.textContent = `已自动保存至浏览器本地 · 实时同步 (${new Date(state.sessionUpdatedAt).toLocaleTimeString()})`;
+        }
+      }
+    }
+
+    // 保存偏好设置（不含敏感接口的常用偏好）
+    function savePreferences() {
+      try {
+        const prefs = {
+          participantId: document.getElementById('input-participant-id').value.trim() || 'SUB_001',
+          groupNote: document.getElementById('input-group-note').value.trim() || 'Baseline',
+          mode: document.querySelector('input[name="task-mode"]:checked').value,
+          singleLevel: parseInt(document.getElementById('select-single-level').value, 10),
+          judgedTrials: parseInt(document.getElementById('input-judged-trials').value, 10) || 20,
+          targetProbPct: parseInt(document.getElementById('input-target-prob').value, 10) || 30,
+          stimulusType: document.getElementById('select-stimulus-type').value,
+          stimDuration: parseInt(document.getElementById('input-stim-duration').value, 10) || 500,
+          isiDuration: parseInt(document.getElementById('input-isi-duration').value, 10) || 2000,
+          includePractice: document.getElementById('check-practice').checked,
+          autoDownloadCsv: document.getElementById('check-auto-download-csv').checked,
+          autoCsvScope: document.getElementById('select-auto-csv-scope').value,
+          webhookUrl: document.getElementById('input-webhook-url').value.trim()
+        };
+        localStorage.setItem(STORAGE_KEY_PREFS, JSON.stringify(prefs));
+      } catch (err) {
+        console.warn('保存偏好设置失败:', err);
+      }
+    }
+
+    function restorePreferences() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_PREFS);
+        if (!raw) return;
+        const p = JSON.parse(raw);
+        if (p.participantId) document.getElementById('input-participant-id').value = p.participantId;
+        if (p.groupNote) document.getElementById('input-group-note').value = p.groupNote;
+        if (p.mode === 'single' || p.mode === 'sequential') {
+          const radio = document.querySelector(`input[name="task-mode"][value="${p.mode}"]`);
+          if (radio) {
+            radio.checked = true;
+            syncModeCardStyles();
+          }
+        }
+        if (p.singleLevel) document.getElementById('select-single-level').value = String(p.singleLevel);
+        if (p.judgedTrials) document.getElementById('input-judged-trials').value = p.judgedTrials;
+        if (p.targetProbPct) document.getElementById('input-target-prob').value = p.targetProbPct;
+        if (p.stimulusType && STIMULUS_POOLS[p.stimulusType]) {
+          document.getElementById('select-stimulus-type').value = p.stimulusType;
+        }
+        if (p.stimDuration) document.getElementById('input-stim-duration').value = p.stimDuration;
+        if (p.isiDuration) document.getElementById('input-isi-duration').value = p.isiDuration;
+        if (typeof p.includePractice === 'boolean') document.getElementById('check-practice').checked = p.includePractice;
+        if (typeof p.autoDownloadCsv === 'boolean') document.getElementById('check-auto-download-csv').checked = p.autoDownloadCsv;
+        if (p.autoCsvScope) document.getElementById('select-auto-csv-scope').value = p.autoCsvScope;
+        if (typeof p.webhookUrl === 'string') document.getElementById('input-webhook-url').value = p.webhookUrl;
+      } catch (err) {
+        console.warn('恢复偏好设置失败:', err);
+      }
+    }
+
+    // 渲染历史自动保存记录列表
+    function renderHistoryModal() {
+      const container = document.getElementById('history-list-container');
+      const sessions = loadSavedSessions();
+
+      if (sessions.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-slate-400 space-y-2">
+            <p class="text-base font-medium text-slate-300">暂无自动保存的实验记录</p>
+            <p class="text-xs">开始并作答 N-Back 实验后，系统会自动将每条试次与汇总结果保存在当前浏览器中。</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      sessions.forEach(sess => {
+        const overall = sess.overallMetrics;
+        const accText = overall ? `${overall.accuracy}%` : '暂无正式试次';
+        const rtText = overall && overall.meanCorrectRT ? `${overall.meanCorrectRT} ms` : '-';
+        const modeText = sess.config?.mode === 'sequential'
+          ? '1→2→3-Back 分层'
+          : `单难度 ${sess.config?.singleLevel || 2}-Back`;
+        const formalCount = (sess.trials || []).filter(t => t.Phase === 'Formal').length;
+        const timeFormatted = new Date(sess.updatedAt || sess.createdAt).toLocaleString('zh-CN');
+
+        const card = document.createElement('div');
+        card.className = 'bg-slate-800/70 hover:bg-slate-800 border border-slate-700/80 rounded-xl p-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 transition';
+
+        card.innerHTML = `
+          <div class="space-y-1.5">
+            <div class="flex flex-wrap items-center gap-2">
+              <span class="text-sm font-bold text-white">${escapeHtml(sess.config?.participantId || '未命名被试')}</span>
+              <span class="px-2 py-0.5 rounded-md text-xs bg-slate-900 text-slate-300 border border-slate-700">${escapeHtml(sess.config?.groupNote || 'Default')}</span>
+              <span class="px-2 py-0.5 rounded-md text-xs bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">${modeText}</span>
+              ${sess.isCompleted
+                ? '<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">已完成</span>'
+                : '<span class="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30">未完成/已中断（已存盘）</span>'
+              }
+            </div>
+            <div class="text-xs text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+              <span>保存时间: ${timeFormatted}</span>
+              <span>正式试次: ${formalCount} 条</span>
+              <span>正确率: <strong class="text-emerald-400">${accText}</strong></span>
+              <span>平均 RT: <strong class="text-indigo-300">${rtText}</strong></span>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2 shrink-0">
+            <button type="button" data-action="load" data-id="${sess.sessionId}" class="px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold transition cursor-pointer">
+              加载至报告页
+            </button>
+            <button type="button" data-action="csv-trials" data-id="${sess.sessionId}" class="px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-100 text-xs font-medium transition cursor-pointer">
+              导出明细 CSV
+            </button>
+            <button type="button" data-action="csv-summary" data-id="${sess.sessionId}" class="px-3 py-1.5 rounded-lg bg-teal-700/80 hover:bg-teal-600 text-teal-100 text-xs font-medium transition cursor-pointer">
+              导出汇总 CSV
+            </button>
+            <button type="button" data-action="delete" data-id="${sess.sessionId}" class="px-3 py-1.5 rounded-lg bg-rose-950/70 hover:bg-rose-900 text-rose-300 border border-rose-500/30 text-xs font-medium transition cursor-pointer">
+              删除
+            </button>
+          </div>
+        `;
+
+        container.appendChild(card);
+      });
+
+      // 绑定单条操作事件
+      container.querySelectorAll('button[data-action]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const action = btn.getAttribute('data-action');
+          const id = btn.getAttribute('data-id');
+          const targetSession = loadSavedSessions().find(s => s.sessionId === id);
+          if (!targetSession) return;
+
+          if (action === 'load') {
+            document.getElementById('history-modal').classList.add('hidden');
+            loadSessionIntoResultsView(targetSession);
+          } else if (action === 'csv-trials') {
+            exportSessionTrialsCSV(targetSession);
+          } else if (action === 'csv-summary') {
+            exportSessionSummaryCSV(targetSession);
+          } else if (action === 'delete') {
+            showDialog({
+              title: '删除该条自动保存记录？',
+              message: `确定要删除被试 "${targetSession.config?.participantId || id}" 的本地保存记录吗？此操作不可撤销。`,
+              confirmText: '确认删除',
+              onConfirm: () => {
+                const remaining = loadSavedSessions().filter(s => s.sessionId !== id);
+                writeSavedSessions(remaining);
+                renderHistoryModal();
+              }
+            });
+          }
+        });
+      });
+    }
+
+    function loadSessionIntoResultsView(sess) {
+      state.sessionId = sess.sessionId;
+      state.sessionCreatedAt = sess.createdAt;
+      state.sessionUpdatedAt = sess.updatedAt;
+      state.isCompleted = Boolean(sess.isCompleted);
+      state.webhookStatusText = sess.webhookStatusText || '未配置';
+      state.config = { ...state.config, ...(sess.config || {}) };
+      state.allTrialRecords = Array.isArray(sess.trials) ? sess.trials : [];
+
+      const formalRecords = state.allTrialRecords.filter(r => r.Phase === 'Formal');
+      const levelsPresent = [...new Set(formalRecords.map(r => r.Block_Level))];
+      state.summaryMetrics = levelsPresent.map(lvl => {
+        const subset = formalRecords.filter(r => r.Block_Level === lvl);
+        return calculateBlockMetrics(subset, lvl);
+      }).filter(Boolean);
+
+      renderResultsScreen(null);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    document.getElementById('btn-open-history').addEventListener('click', () => {
+      renderHistoryModal();
+      document.getElementById('history-modal').classList.remove('hidden');
+    });
+    document.getElementById('btn-results-open-history').addEventListener('click', () => {
+      renderHistoryModal();
+      document.getElementById('history-modal').classList.remove('hidden');
+    });
+    document.getElementById('btn-close-history').addEventListener('click', () => {
+      document.getElementById('history-modal').classList.add('hidden');
+    });
+
+    document.getElementById('btn-clear-all-sessions').addEventListener('click', () => {
+      const sessions = loadSavedSessions();
+      if (sessions.length === 0) return;
+      showDialog({
+        title: '清空全部历史自动保存记录？',
+        message: `当前共有 ${sessions.length} 条本地实验记录，清空后将无法恢复。建议先导出 CSV 备份。`,
+        confirmText: '全部清空',
+        onConfirm: () => {
+          writeSavedSessions([]);
+          renderHistoryModal();
+        }
+      });
+    });
+
+    document.getElementById('btn-export-all-sessions-csv').addEventListener('click', () => {
+      const sessions = loadSavedSessions();
+      if (sessions.length === 0) {
+        showDialog({
+          title: '暂无可导出的记录',
+          message: '浏览器本地存储中目前没有任何历史实验记录。',
+          singleButton: true,
+          confirmText: '知道了'
+        });
+        return;
+      }
+      const combinedRows = [];
+      sessions.forEach(sess => {
+        (sess.trials || []).forEach(tr => {
+          combinedRows.push({
+            Session_ID: sess.sessionId,
+            Session_Completed: sess.isCompleted ? 'Yes' : 'No',
+            ...tr
+          });
+        });
+      });
+      const dateStr = new Date().toISOString().slice(0, 10);
+      downloadCSV(`NBack_All_Sessions_Trials_${dateStr}.csv`, combinedRows);
+    });
+
+    /**
+     * ============================================================================
+     * 2. 配置面板事件与预估时长
+     * ============================================================================
+     */
+    function syncModeCardStyles() {
+      const mode = document.querySelector('input[name="task-mode"]:checked').value;
+      const isSingle = mode === 'single';
+      document.getElementById('select-single-level').disabled = !isSingle;
+      document.getElementById('mode-card-sequential').className = !isSingle
+        ? 'relative flex items-start p-4 rounded-xl border border-indigo-500 bg-indigo-950/30 cursor-pointer transition'
+        : 'relative flex items-start p-4 rounded-xl border border-slate-700 bg-slate-800/50 cursor-pointer transition';
+      document.getElementById('mode-card-single').className = isSingle
+        ? 'relative flex items-start p-4 rounded-xl border border-indigo-500 bg-indigo-950/30 cursor-pointer transition'
+        : 'relative flex items-start p-4 rounded-xl border border-slate-700 bg-slate-800/50 cursor-pointer transition';
+    }
+
+    function updateEstimatedTime() {
+      const mode = document.querySelector('input[name="task-mode"]:checked').value;
+      const levelsCount = mode === 'sequential' ? 3 : 1;
+      const judgedTrials = Math.max(5, parseInt(document.getElementById('input-judged-trials').value, 10) || 20);
+      const stimDur = Math.max(150, parseInt(document.getElementById('input-stim-duration').value, 10) || 500);
+      const isiDur = Math.max(500, parseInt(document.getElementById('input-isi-duration').value, 10) || 2000);
+      const hasPractice = document.getElementById('check-practice').checked;
+
+      const avgN = mode === 'sequential' ? 2 : parseInt(document.getElementById('select-single-level').value, 10);
+      const formalTrials = levelsCount * (judgedTrials + avgN);
+      const practiceTrials = hasPractice ? levelsCount * (PRACTICE_JUDGED_TRIALS + avgN) : 0;
+      const totalSec = Math.round(((formalTrials + practiceTrials) * (stimDur + isiDur)) / 1000);
+      const mins = (totalSec / 60).toFixed(1);
+
+      document.getElementById('estimated-time-text').textContent = `约 ${mins} 分钟（共 ${formalTrials + practiceTrials} 个刺激呈现）`;
+    }
+
+    document.querySelectorAll('input[name="task-mode"]').forEach(radio => {
+      radio.addEventListener('change', () => {
+        syncModeCardStyles();
+        updateEstimatedTime();
+        savePreferences();
+      });
+    });
+
+    [
+      'input-participant-id', 'input-group-note', 'input-judged-trials',
+      'input-target-prob', 'select-stimulus-type', 'input-stim-duration',
+      'input-isi-duration', 'check-practice', 'select-single-level',
+      'check-auto-download-csv', 'select-auto-csv-scope', 'input-webhook-url'
+    ].forEach(id => {
+      const el = document.getElementById(id);
+      el.addEventListener('change', () => {
+        updateEstimatedTime();
+        savePreferences();
+      });
+      el.addEventListener('input', () => {
+        updateEstimatedTime();
+        savePreferences();
+      });
+    });
+
+    /**
+     * ============================================================================
+     * 3. N-Back 序列生成与试次执行引擎
+     * ============================================================================
+     */
+    function generateNBackSequence(nLevel, judgedCount, targetProb, pool) {
+      const totalTrials = nLevel + judgedCount;
+      const targetCount = Math.round(judgedCount * targetProb);
+
+      const matchFlags = [];
+      for (let i = 0; i < judgedCount; i++) {
+        matchFlags.push(i < targetCount);
+      }
+      for (let i = matchFlags.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [matchFlags[i], matchFlags[j]] = [matchFlags[j], matchFlags[i]];
+      }
+
+      const sequence = [];
+      for (let i = 0; i < totalTrials; i++) {
+        if (i < nLevel) {
+          let candidates = [...pool];
+          if (i > 0 && candidates.length > 1) {
+            candidates = candidates.filter(c => c !== sequence[i - 1].stimulus);
+          }
+          const chosen = candidates[Math.floor(Math.random() * candidates.length)];
+          sequence.push({
+            trialIndex: i + 1,
+            judgedIndex: 0,
+            isJudged: false,
+            stimulus: chosen,
+            referenceStimulus: '-',
+            isMatch: false
+          });
+        } else {
+          const judgedIdx = i - nLevel;
+          const shouldMatch = matchFlags[judgedIdx];
+          const refStim = sequence[i - nLevel].stimulus;
+          let chosen;
+
+          if (shouldMatch) {
+            chosen = refStim;
+          } else {
+            let nonMatchPool = pool.filter(c => c !== refStim);
+            if (nLevel > 1 && nonMatchPool.length > 2) {
+              const filtered = nonMatchPool.filter(c => c !== sequence[i - 1].stimulus);
+              if (filtered.length > 0) nonMatchPool = filtered;
+            }
+            chosen = nonMatchPool[Math.floor(Math.random() * nonMatchPool.length)];
+          }
+
+          sequence.push({
+            trialIndex: i + 1,
+            judgedIndex: judgedIdx + 1,
+            isJudged: true,
+            stimulus: chosen,
+            referenceStimulus: refStim,
+            isMatch: shouldMatch
+          });
+        }
+      }
+      return sequence;
+    }
+
+    document.getElementById('btn-start-experiment').addEventListener('click', () => {
+      const errorBox = document.getElementById('setup-error-box');
+      errorBox.classList.add('hidden');
+
+      const pid = document.getElementById('input-participant-id').value.trim();
+      if (!pid) {
+        errorBox.textContent = '请填写被试编号 (Participant ID) 后再开始实验。';
+        errorBox.classList.remove('hidden');
+        return;
+      }
+
+      const judgedTrials = parseInt(document.getElementById('input-judged-trials').value, 10);
+      const targetProbPct = parseInt(document.getElementById('input-target-prob').value, 10);
+      const stimDuration = parseInt(document.getElementById('input-stim-duration').value, 10);
+      const isiDuration = parseInt(document.getElementById('input-isi-duration').value, 10);
+
+      if (isNaN(judgedTrials) || judgedTrials < 5 || judgedTrials > 200) {
+        errorBox.textContent = '每难度有效判断试次数请设置在 5 到 200 之间。';
+        errorBox.classList.remove('hidden');
+        return;
+      }
+      if (isNaN(targetProbPct) || targetProbPct < 10 || targetProbPct > 80) {
+        errorBox.textContent = '目标匹配比例请设置在 10% 到 80% 之间。';
+        errorBox.classList.remove('hidden');
+        return;
+      }
+
+      const webhookUrl = document.getElementById('input-webhook-url').value.trim();
+
+      state.config = {
+        participantId: pid,
+        groupNote: document.getElementById('input-group-note').value.trim() || 'Default',
+        mode: document.querySelector('input[name="task-mode"]:checked').value,
+        singleLevel: parseInt(document.getElementById('select-single-level').value, 10),
+        judgedTrials,
+        targetProb: targetProbPct / 100,
+        stimulusType: document.getElementById('select-stimulus-type').value,
+        stimDuration: Math.max(150, stimDuration || 500),
+        isiDuration: Math.max(500, isiDuration || 2000),
+        includePractice: document.getElementById('check-practice').checked,
+        autoDownloadCsv: document.getElementById('check-auto-download-csv').checked,
+        autoCsvScope: document.getElementById('select-auto-csv-scope').value,
+        webhookUrl
+      };
+
+      savePreferences();
+
+      // 创建新会话并立即写入 localStorage
+      const nowIso = new Date().toISOString();
+      state.sessionId = `NB_${Date.now()}_${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+      state.sessionCreatedAt = nowIso;
+      state.sessionUpdatedAt = nowIso;
+      state.isCompleted = false;
+      state.webhookStatusText = webhookUrl ? '待上报' : '未配置';
+      state.allTrialRecords = [];
+      state.summaryMetrics = [];
+
+      state.blocksQueue = [];
+      const levels = state.config.mode === 'sequential' ? [1, 2, 3] : [state.config.singleLevel];
+      levels.forEach(lvl => {
+        if (state.config.includePractice) {
+          state.blocksQueue.push({ level: lvl, isPractice: true, judgedCount: PRACTICE_JUDGED_TRIALS });
+        }
+        state.blocksQueue.push({ level: lvl, isPractice: false, judgedCount: state.config.judgedTrials });
+      });
+
+      state.currentBlockIndex = -1;
+      persistCurrentSessionToStorage();
+      prepareNextBlock();
+    });
+
+    function prepareNextBlock() {
+      clearAllTimers();
+      state.currentBlockIndex++;
+      persistCurrentSessionToStorage();
+
+      if (state.currentBlockIndex >= state.blocksQueue.length) {
+        completeExperiment();
+        return;
+      }
+
+      const block = state.blocksQueue[state.currentBlockIndex];
+      const badge = document.getElementById('instr-badge');
+      const title = document.getElementById('instr-title');
+      const body = document.getElementById('instr-body');
+      document.getElementById('instr-n-count').textContent = String(block.level);
+
+      if (block.isPractice) {
+        badge.textContent = `热身练习 · ${block.level}-Back`;
+        badge.className = 'inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30';
+        title.textContent = `${block.level}-Back 练习阶段 (${block.judgedCount} 次判断)`;
+      } else {
+        badge.textContent = `正式实验 · ${block.level}-Back`;
+        badge.className = 'inline-flex items-center gap-2 px-3.5 py-1 rounded-full text-xs font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/30';
+        title.textContent = `${block.level}-Back 正式实验 (${block.judgedCount} 次判断)`;
+      }
+
+      const ruleMap = {
+        1: '请将当前呈现的刺激与<strong>紧邻的前第 1 个刺激</strong>比较。',
+        2: '请将当前呈现的刺激与<strong>往前数第 2 个刺激</strong>（中间隔 1 个）比较。',
+        3: '请将当前呈现的刺激与<strong>往前数第 3 个刺激</strong>（中间隔 2 个）比较。'
+      };
+
+      body.innerHTML = `
+        <p>• <strong>比较规则 (${block.level}-Back)：</strong>${ruleMap[block.level]}</p>
+        <p>• <strong>基准记忆：</strong>前 <strong>${block.level}</strong> 个刺激仅作为记忆基准，屏幕上方会提示“记忆基准项”，无需判断。</p>
+        <p>• <strong>按键反应：</strong>从第 <strong>${block.level + 1}</strong> 个刺激起，<strong>匹配按 F 键</strong>，<strong>不匹配按 J 键</strong>（也可点击下方按钮）。</p>
+        ${block.isPractice ? '<p class="text-amber-300">• <strong>练习反馈：</strong>本阶段将提示作答正误，随后自动进入正式实验。</p>' : ''}
+      `;
+
+      switchView('instruction');
+    }
+
+    function startCurrentBlock() {
+      const block = state.blocksQueue[state.currentBlockIndex];
+      const pool = STIMULUS_POOLS[state.config.stimulusType];
+      state.currentTrials = generateNBackSequence(block.level, block.judgedCount, state.config.targetProb, pool);
+      state.currentTrialIndex = -1;
+
+      const labelEl = document.getElementById('trial-block-label');
+      labelEl.textContent = `${block.level}-Back ${block.isPractice ? '[练习]' : '[正式实验]'}`;
+      labelEl.className = block.isPractice ? 'font-bold text-amber-400' : 'font-bold text-indigo-400';
+
+      switchView('trial');
+
+      const stimEl = document.getElementById('stimulus-display');
+      const fbEl = document.getElementById('feedback-indicator');
+      stimEl.textContent = '+';
+      stimEl.className = 'stimulus-char text-6xl text-slate-500 select-none';
+      fbEl.textContent = '准备开始...';
+      fbEl.className = 'h-6 mt-3 text-xs sm:text-sm font-medium text-slate-400';
+      document.getElementById('baseline-hint').classList.add('hidden');
+
+      const timer = setTimeout(() => runNextTrial(), 750);
+      state.timers.push(timer);
+    }
+
+    function runNextTrial() {
+      state.currentTrialIndex++;
+      const total = state.currentTrials.length;
+
+      if (state.currentTrialIndex >= total) {
+        prepareNextBlock();
+        return;
+      }
+
+      const trial = state.currentTrials[state.currentTrialIndex];
+      const block = state.blocksQueue[state.currentBlockIndex];
+
+      document.getElementById('trial-counter-text').textContent = `试次 ${trial.trialIndex} / ${total}`;
+      document.getElementById('trial-progress-bar').style.width = `${((trial.trialIndex - 1) / total) * 100}%`;
+
+      state.hasResponded = false;
+      state.isWaitingForResponse = trial.isJudged;
+
+      const stimBox = document.getElementById('stimulus-box');
+      const stimEl = document.getElementById('stimulus-display');
+      const fbEl = document.getElementById('feedback-indicator');
+      const baselineHint = document.getElementById('baseline-hint');
+
+      stimBox.className = 'w-56 h-56 sm:w-64 sm:h-64 rounded-3xl bg-slate-900 border-2 border-slate-700 shadow-2xl flex flex-col items-center justify-center relative transition-colors duration-100';
+
+      if (!trial.isJudged) {
+        baselineHint.classList.remove('hidden');
+        fbEl.textContent = '记忆基准项';
+        fbEl.className = 'h-6 mt-3 text-xs font-medium text-slate-400';
+      } else {
+        baselineHint.classList.add('hidden');
+        fbEl.textContent = '等待反应';
+        fbEl.className = 'h-6 mt-3 text-xs font-medium text-transparent';
+      }
+
+      stimEl.textContent = trial.stimulus;
+      stimEl.className = 'stimulus-char text-7xl sm:text-8xl text-white select-none';
+      state.trialStartTime = performance.now();
+
+      const stimOffTimer = setTimeout(() => {
+        stimEl.textContent = '+';
+        stimEl.className = 'stimulus-char text-6xl text-slate-500 select-none';
+      }, state.config.stimDuration);
+      state.timers.push(stimOffTimer);
+
+      const trialEndTimer = setTimeout(() => {
+        if (trial.isJudged && !state.hasResponded) {
+          recordTrialOutcome(trial, block, 'None', null);
+        }
+        state.isWaitingForResponse = false;
+        runNextTrial();
+      }, state.config.stimDuration + state.config.isiDuration);
+      state.timers.push(trialEndTimer);
+    }
+
+    function handleUserResponse(responseType) {
+      if (views.trial.classList.contains('hidden')) return;
+      if (!state.isWaitingForResponse || state.hasResponded) return;
+
+      const rt = Math.round((performance.now() - state.trialStartTime) * 100) / 100;
+      state.hasResponded = true;
+
+      const trial = state.currentTrials[state.currentTrialIndex];
+      const block = state.blocksQueue[state.currentBlockIndex];
+      const isCorrect = recordTrialOutcome(trial, block, responseType, rt);
+
+      const stimBox = document.getElementById('stimulus-box');
+      const fbEl = document.getElementById('feedback-indicator');
+
+      if (block.isPractice) {
+        if (isCorrect) {
+          stimBox.classList.replace('border-slate-700', 'border-emerald-500');
+          fbEl.textContent = `✓ 正确 (${Math.round(rt)} ms)`;
+          fbEl.className = 'h-6 mt-3 text-xs sm:text-sm font-semibold text-emerald-400';
+        } else {
+          stimBox.classList.replace('border-slate-700', 'border-rose-500');
+          fbEl.textContent = `✗ 错误 (应为${trial.isMatch ? '匹配' : '不匹配'})`;
+          fbEl.className = 'h-6 mt-3 text-xs sm:text-sm font-semibold text-rose-400';
+        }
+      } else {
+        stimBox.classList.replace('border-slate-700', 'border-indigo-500/70');
+        fbEl.textContent = '• 已记录并自动保存';
+        fbEl.className = 'h-6 mt-3 text-xs font-medium text-teal-300';
+      }
+    }
+
+    function recordTrialOutcome(trial, block, userResponse, rtMs) {
+      let isCorrect = false;
+      let outcomeType = '';
+
+      if (userResponse === 'None') {
+        isCorrect = false;
+        outcomeType = 'Miss_Omission';
+      } else if (trial.isMatch && userResponse === 'Match') {
+        isCorrect = true;
+        outcomeType = 'Hit';
+      } else if (!trial.isMatch && userResponse === 'Non-Match') {
+        isCorrect = true;
+        outcomeType = 'Correct_Rejection';
+      } else if (!trial.isMatch && userResponse === 'Match') {
+        isCorrect = false;
+        outcomeType = 'False_Alarm';
+      } else if (trial.isMatch && userResponse === 'Non-Match') {
+        isCorrect = false;
+        outcomeType = 'Miss';
+      }
+
+      state.allTrialRecords.push({
+        Participant_ID: state.config.participantId,
+        Group: state.config.groupNote,
+        Phase: block.isPractice ? 'Practice' : 'Formal',
+        Block_Level: `${block.level}-Back`,
+        N_Value: block.level,
+        Trial_Index: trial.trialIndex,
+        Judged_Trial_Index: trial.judgedIndex,
+        Stimulus: trial.stimulus,
+        Target_Reference: trial.referenceStimulus,
+        Trial_Type: trial.isMatch ? 'Match' : 'Non-Match',
+        User_Response: userResponse,
+        Is_Correct: isCorrect ? 1 : 0,
+        Outcome_Type: outcomeType,
+        RT_ms: rtMs !== null ? rtMs : '',
+        Timestamp: new Date().toISOString()
+      });
+
+      // 每次试次结算立即自动保存至 localStorage
+      persistCurrentSessionToStorage();
+      return isCorrect;
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (!views.instruction.classList.contains('hidden') && e.code === 'Space') {
+        e.preventDefault();
+        startCurrentBlock();
+        return;
+      }
+      if (!views.trial.classList.contains('hidden')) {
+        const k = e.key.toLowerCase();
+        if (k === 'f') {
+          e.preventDefault();
+          handleUserResponse('Match');
+        } else if (k === 'j') {
+          e.preventDefault();
+          handleUserResponse('Non-Match');
+        }
+      }
+    });
+
+    document.getElementById('btn-begin-block').addEventListener('click', startCurrentBlock);
+    document.getElementById('btn-respond-match').addEventListener('click', () => handleUserResponse('Match'));
+    document.getElementById('btn-respond-nonmatch').addEventListener('click', () => handleUserResponse('Non-Match'));
+
+    function clearAllTimers() {
+      state.timers.forEach(t => clearTimeout(t));
+      state.timers = [];
+    }
+
+    // 终止实验（已完成的试次已实时保存在 localStorage 中）
+    function handleAbortRequest() {
+      showDialog({
+        title: '终止当前实验？',
+        message: '已完成的试次均已实时自动保存在“历史自动保存记录”中。终止后将返回配置页。',
+        confirmText: '终止并返回',
+        onConfirm: () => {
+          clearAllTimers();
+          state.isWaitingForResponse = false;
+          persistCurrentSessionToStorage();
+          switchView('setup');
+        }
+      });
+    }
+
+    document.getElementById('btn-abort-trial').addEventListener('click', handleAbortRequest);
+    document.getElementById('btn-abort-from-instr').addEventListener('click', handleAbortRequest);
+
+    /**
+     * ============================================================================
+     * 4. 统计分析引擎：准确率、命中率、虚报率、遗漏率、RT (Mean & SD) 与 d'
+     * ============================================================================
+     */
+    function normSInv(p) {
+      const a1 = -3.969683028665376e+01, a2 = 2.209460984245205e+02, a3 = -2.759285104469687e+02;
+      const a4 = 1.383577518672690e+02, a5 = -3.066479806614716e+01, a6 = 2.506628277459239e+00;
+      const b1 = -5.447609879822406e+01, b2 = 1.615858368580409e+02, b3 = -1.556989798598866e+02;
+      const b4 = 6.680131188771972e+01, b5 = -1.328068155288572e+01;
+      const c1 = -7.784894002430293e-03, c2 = -3.223964580411365e-01, c3 = -2.400758277161838e+00;
+      const c4 = -2.549732539343734e+00, c5 = 4.374664141464968e+00, c6 = 2.938163982698783e+00;
+      const d1 = 7.784695709041462e-03, d2 = 3.224671290700398e-01, d3 = 2.445134137142996e+00;
+      const d4 = 3.754408661907416e+00;
+      const pLow = 0.02425, pHigh = 1 - pLow;
+      let q, r;
+      if (p < pLow) {
+        q = Math.sqrt(-2 * Math.log(p));
+        return (((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) /
+               ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+      } else if (p <= pHigh) {
+        q = p - 0.5;
+        r = q * q;
+        return (((((a1 * r + a2) * r + a3) * r + a4) * r + a5) * r + a6) * q /
+               (((((b1 * r + b2) * r + b3) * r + b4) * r + b5) * r + 1);
+      } else {
+        q = Math.sqrt(-2 * Math.log(1 - p));
+        return -(((((c1 * q + c2) * q + c3) * q + c4) * q + c5) * q + c6) /
+                ((((d1 * q + d2) * q + d3) * q + d4) * q + 1);
+      }
+    }
+
+    function calculateBlockMetrics(records, levelLabel) {
+      const total = records.length;
+      if (total === 0) return null;
+
+      let hits = 0, misses = 0, falseAlarms = 0, correctRejections = 0;
+      let targetTrials = 0, nonTargetTrials = 0;
+      const correctRTs = [];
+
+      records.forEach(r => {
+        const isTarget = r.Trial_Type === 'Match';
+        if (isTarget) targetTrials++; else nonTargetTrials++;
+
+        if (r.Outcome_Type === 'Hit') hits++;
+        else if (r.Outcome_Type === 'Miss' || r.Outcome_Type === 'Miss_Omission') misses++;
+        else if (r.Outcome_Type === 'False_Alarm') falseAlarms++;
+        else if (r.Outcome_Type === 'Correct_Rejection') correctRejections++;
+
+        if (r.Is_Correct === 1 && r.RT_ms !== '' && typeof r.RT_ms === 'number') {
+          correctRTs.push(r.RT_ms);
+        }
+      });
+
+      const accuracy = ((hits + correctRejections) / total) * 100;
+      const hitRate = targetTrials > 0 ? (hits / targetTrials) * 100 : 0;
+      const faRate = nonTargetTrials > 0 ? (falseAlarms / nonTargetTrials) * 100 : 0;
+      const missRate = (misses / total) * 100;
+
+      const meanCorrectRT = correctRTs.length > 0
+        ? correctRTs.reduce((a, b) => a + b, 0) / correctRTs.length
+        : 0;
+      const sdCorrectRT = correctRTs.length > 1
+        ? Math.sqrt(correctRTs.reduce((sum, val) => sum + Math.pow(val - meanCorrectRT, 2), 0) / (correctRTs.length - 1))
+        : 0;
+
+      // 标准边缘校正 (Snodgrass & Corwin): (k + 0.5) / (n + 1)
+      const adjHit = (hits + 0.5) / (targetTrials + 1);
+      const adjFa = (falseAlarms + 0.5) / (nonTargetTrials + 1);
+      const dPrime = normSInv(adjHit) - normSInv(adjFa);
+
+      return {
+        levelLabel,
+        totalTrials: total,
+        targetTrials,
+        nonTargetTrials,
+        hits,
+        misses,
+        falseAlarms,
+        correctRejections,
+        accuracy: Number(accuracy.toFixed(2)),
+        hitRate: Number(hitRate.toFixed(2)),
+        faRate: Number(faRate.toFixed(2)),
+        missRate: Number(missRate.toFixed(2)),
+        meanCorrectRT: Math.round(meanCorrectRT),
+        sdCorrectRT: Math.round(sdCorrectRT),
+        dPrime: Number(dPrime.toFixed(2))
+      };
+    }
+
+    /**
+     * ============================================================================
+     * 5. 实验完成：本地保存、自动下载 CSV、Webhook 自动上报与报告渲染
+     * ============================================================================
+     */
+    async function completeExperiment() {
+      clearAllTimers();
+      state.isWaitingForResponse = false;
+      state.isCompleted = true;
+      persistCurrentSessionToStorage();
+
+      const bannerMessages = [];
+
+      // 1. 自动下载 CSV
+      if (state.config.autoDownloadCsv && state.allTrialRecords.length > 0) {
+        const scope = state.config.autoCsvScope;
+        if (scope === 'both' || scope === 'trials') {
+          exportSessionTrialsCSV({
+            config: state.config,
+            trials: state.allTrialRecords
+          });
+          bannerMessages.push('已自动下载逐试次 CSV');
+        }
+        if ((scope === 'both' || scope === 'summary') && state.summaryMetrics.length > 0) {
+          exportSessionSummaryCSV({
+            config: state.config,
+            summaryMetrics: state.summaryMetrics
+          });
+          bannerMessages.push('已自动下载汇总 CSV');
+        }
+      }
+
+      // 2. 可选 Webhook 自动上报
+      if (state.config.webhookUrl) {
+        state.webhookStatusText = '正在自动上报...';
+        persistCurrentSessionToStorage();
+
+        const payload = {
+          sessionId: state.sessionId,
+          createdAt: state.sessionCreatedAt,
+          completedAt: new Date().toISOString(),
+          config: {
+            participantId: state.config.participantId,
+            groupNote: state.config.groupNote,
+            mode: state.config.mode,
+            singleLevel: state.config.singleLevel,
+            judgedTrials: state.config.judgedTrials,
+            targetProb: state.config.targetProb,
+            stimulusType: state.config.stimulusType,
+            stimDuration: state.config.stimDuration,
+            isiDuration: state.config.isiDuration
+          },
+          summaryMetrics: state.summaryMetrics,
+          trials: state.allTrialRecords
+        };
+
+        try {
+          const resp = await fetch(state.config.webhookUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (resp.ok) {
+            state.webhookStatusText = '已自动上报';
+            bannerMessages.push('Webhook 已自动上报成功');
+          } else {
+            state.webhookStatusText = `上报失败 (HTTP ${resp.status}) · 已保留本地记录`;
+            bannerMessages.push(`Webhook 返回状态 ${resp.status}，数据已安全保留在浏览器本地`);
+          }
+        } catch (err) {
+          console.warn('Webhook 上报异常:', err);
+          state.webhookStatusText = '已自动上报（离线/跨域回退至本地保存）';
+          // 对于部分 Google Apps Script 或本地文件协议，若 fetch 抛错，尝试 no-cors 兜底发送
+          try {
+            await fetch(state.config.webhookUrl, {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+              body: JSON.stringify(payload)
+            });
+            state.webhookStatusText = '已自动上报 (no-cors) · 本地已同步';
+            bannerMessages.push('已尝试通过 no-cors 自动发送至 Webhook，同时完整保存在本地');
+          } catch (_) {
+            state.webhookStatusText = '上报未连通 · 已自动保存至本地';
+            bannerMessages.push('Webhook 网络不可达，已自动保存至浏览器本地记录');
+          }
+        }
+        persistCurrentSessionToStorage();
+      } else {
+        state.webhookStatusText = '未配置';
+      }
+
+      renderResultsScreen(bannerMessages.length > 0 ? `自动归档完成：${bannerMessages.join('；')}。` : null);
+    }
+
+    function renderResultsScreen(bannerText) {
+      const formalRecords = state.allTrialRecords.filter(r => r.Phase === 'Formal');
+      const overall = calculateBlockMetrics(formalRecords, '总计 (Overall)');
+
+      const compBadge = document.getElementById('res-completion-badge');
+      if (state.isCompleted) {
+        compBadge.textContent = '实验已完成';
+        compBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30';
+      } else {
+        compBadge.textContent = '阶段记录（未全部完成）';
+        compBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-500/15 text-amber-300 border border-amber-500/30';
+      }
+
+      const whBadge = document.getElementById('res-webhook-status');
+      whBadge.textContent = `Webhook: ${state.webhookStatusText}`;
+      if (state.webhookStatusText.includes('已自动上报')) {
+        whBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-medium bg-teal-500/15 text-teal-300 border border-teal-500/30';
+      } else {
+        whBadge.className = 'px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700';
+      }
+
+      document.getElementById('res-meta-info').textContent =
+        `被试: ${state.config.participantId} | 组别: ${state.config.groupNote} | 刺激: ${state.config.stimulusType === 'letters' ? '字母(A-H)' : '数字(1-9)'} | 时长: ${state.config.stimDuration}ms / ${state.config.isiDuration}ms`;
+
+      const bannerEl = document.getElementById('auto-action-banner');
+      if (bannerText) {
+        bannerEl.textContent = bannerText;
+        bannerEl.classList.remove('hidden');
+      } else {
+        bannerEl.classList.add('hidden');
+      }
+
+      const cardsGrid = document.getElementById('summary-cards-grid');
+      if (overall) {
+        cardsGrid.innerHTML = `
+          <div class="bg-slate-800/70 border border-slate-700/80 rounded-2xl p-4">
+            <span class="text-xs text-slate-400">正式实验总体正确率</span>
+            <div class="text-2xl sm:text-3xl font-bold text-emerald-400 mt-1">${overall.accuracy}%</div>
+            <span class="text-xs text-slate-500 mt-1 block">有效判断 ${overall.totalTrials} 次</span>
+          </div>
+          <div class="bg-slate-800/70 border border-slate-700/80 rounded-2xl p-4">
+            <span class="text-xs text-slate-400">正确作答平均反应时</span>
+            <div class="text-2xl sm:text-3xl font-bold text-indigo-400 mt-1">${overall.meanCorrectRT} <span class="text-sm font-normal">ms</span></div>
+            <span class="text-xs text-slate-500 mt-1 block">标准差 SD = ${overall.sdCorrectRT} ms</span>
+          </div>
+          <div class="bg-slate-800/70 border border-slate-700/80 rounded-2xl p-4">
+            <span class="text-xs text-slate-400">总体辨别力指数 (d')</span>
+            <div class="text-2xl sm:text-3xl font-bold text-teal-300 mt-1">${overall.dPrime}</div>
+            <span class="text-xs text-slate-500 mt-1 block">命中率 ${overall.hitRate}% | 虚报率 ${overall.faRate}%</span>
+          </div>
+          <div class="bg-slate-800/70 border border-slate-700/80 rounded-2xl p-4">
+            <span class="text-xs text-slate-400">遗漏率 (Miss Rate)</span>
+            <div class="text-2xl sm:text-3xl font-bold text-amber-400 mt-1">${overall.missRate}%</div>
+            <span class="text-xs text-slate-500 mt-1 block">遗漏/超时 ${overall.misses} 次</span>
+          </div>
+        `;
+      } else {
+        cardsGrid.innerHTML = `
+          <div class="col-span-2 lg:col-span-4 bg-slate-800/60 border border-slate-700 rounded-2xl p-5 text-sm text-slate-300">
+            当前记录中尚无正式实验有效判断试次（可能处于热身练习阶段或已提前终止）。
+          </div>
+        `;
+      }
+
+      const tbody = document.getElementById('results-table-body');
+      tbody.innerHTML = '';
+      const rows = [...state.summaryMetrics];
+      if (rows.length > 1 && overall) rows.push(overall);
+
+      if (rows.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" class="py-6 px-4 text-center text-slate-400">暂无正式实验阶段统计数据</td></tr>`;
+      } else {
+        rows.forEach(m => {
+          const isTotal = m.levelLabel.startsWith('总计');
+          const tr = document.createElement('tr');
+          tr.className = isTotal ? 'bg-slate-800/60 font-semibold text-white' : 'hover:bg-slate-800/30 transition';
+          tr.innerHTML = `
+            <td class="py-3.5 px-4 font-bold ${isTotal ? 'text-indigo-300' : 'text-white'}">${m.levelLabel}</td>
+            <td class="py-3.5 px-4">${m.totalTrials}</td>
+            <td class="py-3.5 px-4 text-emerald-400 font-semibold">${m.accuracy}%</td>
+            <td class="py-3.5 px-4">${m.hitRate}% <span class="text-xs text-slate-500">(${m.hits}/${m.targetTrials})</span></td>
+            <td class="py-3.5 px-4">${m.faRate}% <span class="text-xs text-slate-500">(${m.falseAlarms}/${m.nonTargetTrials})</span></td>
+            <td class="py-3.5 px-4">${m.missRate}% <span class="text-xs text-slate-500">(${m.misses})</span></td>
+            <td class="py-3.5 px-4">${m.meanCorrectRT} ms <span class="text-xs text-slate-500">(±${m.sdCorrectRT} ms)</span></td>
+            <td class="py-3.5 px-4 font-bold text-teal-300">${m.dPrime}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      switchView('results');
+      requestAnimationFrame(() => drawComparisonCharts(state.summaryMetrics));
+    }
+
+    /**
+     * ============================================================================
+     * 6. 高清 Canvas 统计图表绘制
+     * ============================================================================
+     */
+    function drawComparisonCharts(metricsList) {
+      drawBarChart('chart-accuracy', metricsList, {
+        series: [
+          { key: 'accuracy', label: '整体正确率 (%)', color: '#10b981' },
+          { key: 'hitRate', label: '命中率 (%)', color: '#6366f1' }
+        ],
+        maxVal: 100,
+        unit: '%'
+      });
+
+      const maxRT = Math.max(800, ...metricsList.map(m => m.meanCorrectRT + m.sdCorrectRT + 150));
+      drawBarChart('chart-rt', metricsList, {
+        series: [
+          { key: 'meanCorrectRT', label: '正确平均 RT (ms)', color: '#2dd4bf', sdKey: 'sdCorrectRT' }
+        ],
+        maxVal: Math.ceil(maxRT / 200) * 200,
+        unit: 'ms'
+      });
+    }
+
+    function drawBarChart(canvasId, data, options) {
+      const canvas = document.getElementById(canvasId);
+      if (!canvas) return;
+      const parent = canvas.parentElement;
+      const dpr = window.devicePixelRatio || 1;
+      const width = parent.clientWidth;
+      const height = parent.clientHeight;
+
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${width}px`;
+      canvas.style.height = `${height}px`;
+
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.clearRect(0, 0, width, height);
+
+      if (!data || data.length === 0) {
+        ctx.fillStyle = '#64748b';
+        ctx.font = '13px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('暂无正式阶段图表数据', width / 2, height / 2);
+        return;
+      }
+
+      const pad = { top: 28, right: 20, bottom: 34, left: 48 };
+      const chartW = width - pad.left - pad.right;
+      const chartH = height - pad.top - pad.bottom;
+
+      ctx.strokeStyle = '#334155';
+      ctx.lineWidth = 1;
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '11px Inter, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+
+      const steps = 4;
+      for (let i = 0; i <= steps; i++) {
+        const val = Math.round((options.maxVal / steps) * i);
+        const y = pad.top + chartH - (chartH * (i / steps));
+        ctx.beginPath();
+        ctx.moveTo(pad.left, y);
+        ctx.lineTo(pad.left + chartW, y);
+        ctx.stroke();
+        ctx.fillText(String(val), pad.left - 8, y);
+      }
+
+      let legendX = pad.left;
+      options.series.forEach(s => {
+        ctx.fillStyle = s.color;
+        ctx.fillRect(legendX, 6, 10, 10);
+        ctx.fillStyle = '#cbd5e1';
+        ctx.textAlign = 'left';
+        ctx.fillText(s.label, legendX + 15, 11);
+        legendX += ctx.measureText(s.label).width + 32;
+      });
+
+      const groupCount = data.length;
+      const seriesCount = options.series.length;
+      const groupW = chartW / groupCount;
+      const barW = Math.min(44, (groupW * 0.6) / seriesCount);
+
+      data.forEach((item, gIdx) => {
+        const centerX = pad.left + groupW * (gIdx + 0.5);
+        ctx.fillStyle = '#e2e8f0';
+        ctx.font = 'bold 12px Inter, sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(item.levelLabel, centerX, pad.top + chartH + 18);
+
+        options.series.forEach((s, sIdx) => {
+          const val = item[s.key] || 0;
+          const barH = Math.max(2, (val / options.maxVal) * chartH);
+          const offset = (sIdx - (seriesCount - 1) / 2) * (barW + 6);
+          const x = centerX + offset - barW / 2;
+          const y = pad.top + chartH - barH;
+
+          ctx.fillStyle = s.color;
+          ctx.beginPath();
+          ctx.roundRect(x, y, barW, barH, [6, 6, 0, 0]);
+          ctx.fill();
+
+          if (s.sdKey && item[s.sdKey] > 0) {
+            const sdPx = (item[s.sdKey] / options.maxVal) * chartH;
+            const errTop = Math.max(pad.top, y - sdPx);
+            const errBot = Math.min(pad.top + chartH, y + sdPx);
+            const bx = x + barW / 2;
+            ctx.strokeStyle = '#f8fafc';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(bx, errTop);
+            ctx.lineTo(bx, errBot);
+            ctx.moveTo(bx - 5, errTop);
+            ctx.lineTo(bx + 5, errTop);
+            ctx.moveTo(bx - 5, errBot);
+            ctx.lineTo(bx + 5, errBot);
+            ctx.stroke();
+          }
+
+          ctx.fillStyle = '#f8fafc';
+          ctx.font = 'bold 11px Inter, sans-serif';
+          ctx.textAlign = 'center';
+          const labelY = s.sdKey && item[s.sdKey] > 0
+            ? Math.max(pad.top + 8, y - (item[s.sdKey] / options.maxVal) * chartH - 8)
+            : y - 7;
+          ctx.fillText(`${val}${options.unit === '%' ? '%' : ''}`, x + barW / 2, labelY);
+        });
+      });
+    }
+
+    window.addEventListener('resize', () => {
+      if (!views.results.classList.contains('hidden')) {
+        drawComparisonCharts(state.summaryMetrics);
+      }
+    });
+
+    /**
+     * ============================================================================
+     * 7. CSV 导出模块（UTF-8 BOM 兼容 Excel）
+     * ============================================================================
+     */
+    function downloadCSV(filename, rows) {
+      if (!rows || rows.length === 0) return;
+      const headers = Object.keys(rows[0]);
+      const lines = [
+        headers.join(','),
+        ...rows.map(row =>
+          headers.map(h => {
+            const val = row[h] === null || row[h] === undefined ? '' : String(row[h]);
+            return val.includes(',') || val.includes('"') || val.includes('\n')
+              ? `"${val.replace(/"/g, '""')}"`
+              : val;
+          }).join(',')
+        )
+      ];
+      const blob = new Blob(['\uFEFF' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.setAttribute('download', filename);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function exportSessionTrialsCSV(sess) {
+      const trials = sess.trials || [];
+      if (trials.length === 0) return;
+      const pid = sess.config?.participantId || 'SUB';
+      const dateStr = new Date().toISOString().slice(0, 10);
+      downloadCSV(`NBack_Trials_${pid}_${dateStr}.csv`, trials);
+    }
+
+    function exportSessionSummaryCSV(sess) {
+      const metrics = sess.summaryMetrics || [];
+      if (metrics.length === 0) return;
+      const pid = sess.config?.participantId || 'SUB';
+      const group = sess.config?.groupNote || 'Default';
+      const stimDur = sess.config?.stimDuration || 500;
+      const isiDur = sess.config?.isiDuration || 2000;
+      const dateStr = new Date().toISOString().slice(0, 10);
+
+      const rows = metrics.map(m => ({
+        Participant_ID: pid,
+        Group: group,
+        Stim_Duration_ms: stimDur,
+        ISI_Duration_ms: isiDur,
+        Difficulty_Level: m.levelLabel,
+        Judged_Trials: m.totalTrials,
+        Accuracy_Pct: m.accuracy,
+        Hit_Rate_Pct: m.hitRate,
+        False_Alarm_Rate_Pct: m.faRate,
+        Miss_Rate_Pct: m.missRate,
+        Mean_Correct_RT_ms: m.meanCorrectRT,
+        SD_Correct_RT_ms: m.sdCorrectRT,
+        d_prime: m.dPrime
+      }));
+      downloadCSV(`NBack_Summary_${pid}_${dateStr}.csv`, rows);
+    }
+
+    document.getElementById('btn-export-trials-csv').addEventListener('click', () => {
+      exportSessionTrialsCSV({ config: state.config, trials: state.allTrialRecords });
+    });
+
+    document.getElementById('btn-export-summary-csv').addEventListener('click', () => {
+      exportSessionSummaryCSV({ config: state.config, summaryMetrics: state.summaryMetrics });
+    });
+
+    document.getElementById('btn-restart-all').addEventListener('click', () => {
+      switchView('setup');
+    });
+
+    // 页面初始化
+    restorePreferences();
+    syncModeCardStyles();
+    updateEstimatedTime();
+    refreshHistoryBadge();
+  </script>
+</body>
+</html>
